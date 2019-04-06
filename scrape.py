@@ -1,7 +1,13 @@
 from bs4 import BeautifulSoup
 import urllib.request
+from urllib.parse import urlparse
 
 URL = "http://www.alexanderdanilowicz.com/"
+
+def get_domain(URL):
+    parsed_uri = urlparse(URL)
+    result = '{uri.scheme}://{uri.netloc}/'.format(uri=parsed_uri)
+    return domain
 
 def recieve_link(URL):
     response = urllib.request.urlopen(URL)
