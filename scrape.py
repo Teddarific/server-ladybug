@@ -2,8 +2,6 @@ from bs4 import BeautifulSoup
 import urllib.request
 from urllib.parse import urlparse
 
-URL = "http://www.alexanderdanilowicz.com/"
-
 def get_domain(URL):
     parsed_uri = urlparse(URL)
     result = '{uri.scheme}://{uri.netloc}/'.format(uri=parsed_uri)
@@ -15,6 +13,8 @@ def recieve_link(URL):
 
     soup = BeautifulSoup(response, from_encoding=response.info().get_param('charset'), features="lxml")
 
+    find_too_many_headers(soup)
+
     # find_bad_colors()
 
     # find_small_text()
@@ -23,4 +23,17 @@ def recieve_link(URL):
 
     # find_respsonsive()
 
+def find_too_many_headers(soup):
+    PRINT_NAME = "too many headers"
+    TYPE = "too-many-headers"
+    SEVERITY = "warning"
+    my_print(PRINT_NAME)
+
+    # code to find ...
+
+# printName example: "small text", "too many headers"
+def my_print(printName):
+    print("Looking for " + str(printName) + "... ")
+
+URL = "http://www.alexanderdanilowicz.com/"
 recieve_link(URL)
