@@ -73,6 +73,7 @@ def run_prod(soup, URL, socketio):
 	find_inline_styles(soup, URL, socketio)
 	css_parse(soup, URL, socketio)
 	find_spelling_errors(soup, URL, socketio)
+	socketio.emit('data', {"severity": "info", "type": "text", "text": "Completed testing."})
 
 def run_debug(soup, URL, socketio):
 	find_too_many_h1s(soup, URL, socketio)
