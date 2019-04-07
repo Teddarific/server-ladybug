@@ -375,11 +375,11 @@ def find_spelling_errors(soup, URL, socketio):
 	create_print_json(TYPE, socketio)
 
 	try:
+		counter = 0
 		[s.extract() for s in soup('script')]
 		text = soup.get_text()
 		text = re.sub(r'[\n]', '', text)
 		spell = SpellChecker()
-
 		misspelled_word = False
 		for word in text.split(' '):
 			word = word.translate(str.maketrans('', '', string.punctuation))
@@ -387,8 +387,12 @@ def find_spelling_errors(soup, URL, socketio):
 				correct_spelling = spell.correction(word)
 				if correct_spelling != word:
 					misspelled_word = True
+					counter += 1
 					text = "You have a misspelled word at " + str(URL)
 					create_error_json(TYPE, SEVERITY, URL, text=text, meta=word, socketio=socketio)
+			if counter > 5:
+				return
+		
 		if not misspelled_word:
 			create_success_json(TYPE, URL, socketio)
 	except:

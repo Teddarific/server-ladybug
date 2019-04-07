@@ -7,9 +7,10 @@ PRODUCTION = True
 def recieve_back_end_link(URL, socketio):
 	try:
 		response = requests.get(URL)
-		create_print_json("Confirmed valid API URL", URL, socketio)
+		create_print_json("Confirmed valid API URL", socketio)
 		print("Confirmed provided URL is valid.")
-	except:
+	except Exception as e:
+		print(e)
 		create_error_json("Provided invalid API URL", "error", URL, socketio=socketio, text="The provided API URL could not be successfully pinged", meta="")
 		print("Provided URL is invalid.")
 		return
@@ -23,6 +24,7 @@ def recieve_back_end_link(URL, socketio):
 		test_open_routes(URL, socketio)
 		test_response_time(URL, socketio)
 
+	socketio.emit('data', {"severity": "info", "type": "text", "text": "Completed testing."})
 
 	######### WORKING ON ############
 

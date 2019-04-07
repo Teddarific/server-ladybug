@@ -14,7 +14,7 @@ def handle_connect():
 
 @socketio.on('init')
 def handle_init(data):
-    print(data)
+    print("new initiationalization")
     if "feLink" in data and data["feLink"] != "":
         recieve_front_end_link(data["feLink"], socketio)
     elif "beLink" in data and data["beLink"] != "":
