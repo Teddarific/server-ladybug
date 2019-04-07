@@ -39,6 +39,7 @@ def recieve_link(URL):
             find_too_many_h1s(soup, URL)
             find_small_text(soup, URL)
             find_inline_styles(soup, URL)
+            find_spelling_errors(soup, URL)
 
     ######### WORKING ON ############
     # find_broken_links(soup, URL)
@@ -47,8 +48,8 @@ def recieve_link(URL):
     # find_respsonsive()
     # find_light_text()
 
-    # find_respsonsive()
-    find_spelling_errors(soup, URL)
+    # find_responsive()
+    find_broken_buttons(soup, URL)
 
 def find_broken_links(soup, URL):
 	TYPE = "broken links"
@@ -167,6 +168,40 @@ def find_spelling_errors(soup, URL):
                     create_error_json(TYPE, SEVERITY, URL, text=text, meta=word)
     if not misspelled_word:
         create_success_json(TYPE)
+
+def find_broken_buttons(soup, URL):
+    TYPE = 'broken_button'
+    SEVERITY = 'warning'
+    create_print_json(TYPE)
+    broken_button = False
+
+    button_href = soup.find_all('button', {"href": False})
+    if len(button_href) != 0:
+        text = "You have a button without an href at " + str(URL)
+        create_error_json(TYPE, SEVERITY, URL, text=text, meta=button_href) 
+        broken_button = True
+
+    for tag in soup.find_all('button'):
+        for broken_tag in tag.findAll('a', {'href': False}):
+            text = "You have a button without an href at " + str(URL)
+            create_error_json(TYPE, SEVERITY, URL, text=text, meta=broken_tag)
+            broken_button = True
+
+    for tag in soup.find_all('div'):
+        for broken_tag in tag.findAll('a', {'href': False}):
+            text = "You have a button without an href at " + str(URL)
+            create_error_json(TYPE, SEVERITY, URL, text=text, meta=broken_tag)
+            broken_button = True
+
+    for broken_tag in tag.findAll('a', {'href': False}):
+        text = "You have a button without an href at " + str(URL)
+        create_error_json(TYPE, SEVERITY, URL, text=text, meta=broken_tag)
+        broken_button = True
+            
+    if not broken_button:
+        create_success_json(TYPE)
+
+        
 
 ######## DRIVER ############
 URL = "http://www.alexanderdanilowicz.com/"
