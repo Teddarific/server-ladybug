@@ -104,10 +104,10 @@ def css_parse(soup, URL, socketio):
 			pass
 
 		if smt_success_bool: # if this stayed true the whole time it's a success
-			create_success_json("small text", socketio)
+			create_success_json("small text", URL, socketio)
 
 		if inaccess_success_bool:
-			create_success_json("inaccessible colors", socketio)
+			create_success_json("inaccessible colors", URL, socketio)
 		else:
 			TYPE = "inaccessible colors"
 			SEVERITY = "warning"
@@ -115,7 +115,7 @@ def css_parse(soup, URL, socketio):
 			create_error_json(TYPE, SEVERITY, fullCSSStyleLink, text=text, meta=str(INACCESSIBLE_COLORS_FOUND), socketio=socketio)
 
 		if contrast_success_bool:
-			create_success_json("accessibility for colorblind users", socketio)
+			create_success_json("accessibility for colorblind users", URL, socketio)
 
 
 def find_contrast(soup, URL, first_bool, stylesheetName, fullCSSStyleLink, rule):
@@ -243,7 +243,7 @@ def find_too_many_h1s(soup, URL, socketio):
 		text = "You have " + str(len(h1TagsList)) + " h1 elements on " + str(URL)
 		create_error_json(TYPE, SEVERITY, URL, text=text, meta=meta, socketio=socketio)
 	else:
-		create_success_json(TYPE, socketio)
+		create_success_json(TYPE, URL, socketio)
 
 # severity types: warning, error
 def create_error_json(type, severity, URL, socketio, lineNumber=-1, text="", meta=""):
@@ -260,8 +260,8 @@ def create_print_json(TYPE, socketio):
 	return json
 
 # severity type: success
-def create_success_json(TYPE, socketio):
-	json = {"severity": "success", "type": str(TYPE), "text": "Success, " + (str(TYPE)) + " test passed!"}
+def create_success_json(TYPE, URL, socketio):
+	json = {"severity": "success", "URL": URL, "type": str(TYPE), "text": "Success, " + (str(TYPE)) + " test passed!"}
 	print(json)
 	socketio.emit('data', json)
 	return json
@@ -275,7 +275,7 @@ def find_inline_styles(soup, URL, socketio):
 
 	error_list =  soup.find_all(style=True)
 	if len(error_list) == 0:
-		create_success_json(TYPE, socketio)
+		create_success_json(TYPE, URL, socketio)
 	else:
 		for error in error_list:
 			text = "You have an inline styled elements on " + str(URL)
@@ -303,7 +303,7 @@ def find_spelling_errors(soup, URL):
 					text = "You have a misspelled word at " + str(URL)
 					create_error_json(TYPE, SEVERITY, URL, text=text, meta=word)
 	if not misspelled_word:
-		create_success_json(TYPE)
+		create_success_json(TYPE, URL)
 
 def find_broken_buttons(soup, URL, socketio):
 	TYPE = 'broken_button'
@@ -335,7 +335,7 @@ def find_broken_buttons(soup, URL, socketio):
 		broken_button = True
 
 	if not broken_button:
-		create_success_json(TYPE, socketio)
+		create_success_json(TYPE, URL, socketio)
 
 
 
