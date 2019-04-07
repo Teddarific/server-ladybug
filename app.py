@@ -2,6 +2,7 @@ from flask import Flask, request, render_template, redirect, url_for, jsonify
 from flask_socketio import SocketIO, send, emit
 from time import sleep
 import random
+from scrape import recieve_front_end_link
 
 app = Flask(__name__)
 socketio = SocketIO(app)
@@ -12,6 +13,11 @@ def handle_connect():
 
 @socketio.on('init')
 def handle_init(data):
+    if "feLink" in data:
+        recieve_front_end_link(data["feLink"], socketio)
+
+@socketio.on('test')
+def handle_test(data):
     if "feLink" in data:
         print(data["feLink"])
 

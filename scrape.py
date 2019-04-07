@@ -7,6 +7,7 @@ import requests
 import logging
 import re
 import colorsys
+import webcolors
 
 
 PRODUCTION = False
@@ -27,7 +28,7 @@ def get_domain(URL):
 	result = '{uri.scheme}://{uri.netloc}/'.format(uri=parsed_uri)
 	return result
 
-def recieve_front_end_link(URL):
+def recieve_front_end_link(URL, socketio):
 	try:
 		response = requests.get(URL, headers=headers)
 		print("Success! URL is valid.")
@@ -40,24 +41,24 @@ def recieve_front_end_link(URL):
 
 	######## COMPLETED ############
 	if PRODUCTION:
-		find_too_many_h1s(soup, URL)
-		find_inline_styles(soup, URL)
-		find_broken_links(soup, URL)
+		find_too_many_h1s(soup, URL, socketio)
+		find_inline_styles(soup, URL, socketio)
+		find_broken_links(soup, URL, socketio)
 		# this method loops through all the style sheets
-		# it includes: 
+		# it includes:
 		#	find_small_text() - DONE
 		# 	find_inaccessible_colors() - DONE
 		# 	find_contrast_text() - WORKING ON
-		css_parse(soup, URL)
+		#css_parse(soup, URL, socketio)
 		# find_spelling_errors(soup, URL) - NEED THOMAS TO FIX IMPORT ERROR
-		find_broken_buttons(soup, URL)
-	else:
-		css_parse(soup, URL)
+		find_broken_buttons(soup, URL, socketio)
+	#else:
+		#css_parse(soup, URL, socketio)
 
 	######### WORKING ON ############
 	# find_respsonsive()
 
-def css_parse(soup, URL):
+def css_parse(soup, URL, socketio):
 	DOMAIN = get_domain(URL)
 	cssLinkElements1 = soup.findAll("link", type="text/css")
 	cssLinkElements2 = soup.findAll("link", rel="stylesheet")
@@ -74,58 +75,56 @@ def css_parse(soup, URL):
 	smt_success_bool = True # assume successs
 	inaccess_success_bool = True # assume success
 	contrast_success_bool = True # assume success
+
 	for item in finalCSSLinks:
 		stylesheetName = item['href']
-		create_print_json("css stylesheet: " + str(stylesheetName))
+		create_print_json("css stylesheet: " + str(stylesheetName), socketio)
 		fullCSSStyleLink = DOMAIN + item['href']
 		cssutils.log.setLevel(logging.CRITICAL)
-		try:
-			sheet = cssutils.parseUrl(fullCSSStyleLink)
-			for rule in sheet:
-				if rule.type == rule.STYLE_RULE:
+		sheet = cssutils.parseUrl(fullCSSStyleLink)
 
-					contrast_bool = find_contrast(soup, URL, first_bool, stylesheetName, fullCSSStyleLink, rule)
-					if contrast_bool == False:
-						contrast_success_bool = False # once it turns false, it's not going back to True
+		for rule in sheet:
+			if rule.type == rule.STYLE_RULE:
+				contrast_bool = find_contrast(soup, URL, first_bool, stylesheetName, fullCSSStyleLink, rule, socketio)
+				if contrast_bool == False:
+					contrast_success_bool = False # once it turns false, it's not going back to True
 
-					# HERE WE LOOP OVER THE PROPERTIES
-					# THIS IS WHERE WE CALL ALL THE FUNCTIONS TO CHECK AT THE SAME TIME
-					# SO WE ONLY HAVE TO LOOP OVER THE STYLE SHEET ONCE
-					for cssProperty in rule.style:
-						smt_bool = find_small_text(soup, URL, cssProperty, first_bool, stylesheetName, fullCSSStyleLink, rule)
-						if smt_bool == False: # error
-							smt_success_bool = False # once it turns false, it's not going back to True
+				# HERE WE LOOP OVER THE PROPERTIES
+				# THIS IS WHERE WE CALL ALL THE FUNCTIONS TO CHECK AT THE SAME TIME
+				# SO WE ONLY HAVE TO LOOP OVER THE STYLE SHEET ONCE
+				for cssProperty in rule.style:
+					smt_bool = find_small_text(soup, URL, cssProperty, first_bool, stylesheetName, fullCSSStyleLink, rule, socketio)
+					if smt_bool == False: # error
+						smt_success_bool = False # once it turns false, it's not going back to True
 
-						inaccess_bool = find_inaccessible_colors(soup, URL, cssProperty, first_bool, stylesheetName, fullCSSStyleLink, rule)
-						if inaccess_bool == False:
-							inaccess_success_bool = False # once it turns false, it's not going back to True
+					inaccess_bool = find_inaccessible_colors(soup, URL, cssProperty, first_bool, stylesheetName, fullCSSStyleLink, rule, socketio)
+					if inaccess_bool == False:
+						inaccess_success_bool = False # once it turns false, it's not going back to True
 
-						first_bool = False 
-		except:
-			pass
+				first_bool = False
 
 		if smt_success_bool: # if this stayed true the whole time it's a success
-			create_success_json("small text")
-		
+			create_success_json("small text", socketio)
+
 		if inaccess_success_bool:
-			create_success_json("inaccessible colors")
+			create_success_json("inaccessible colors", socketio)
 		else:
 			TYPE = "inaccessible colors"
 			SEVERITY = "warning"
 			text = "We found " + str(len(INACCESSIBLE_COLORS_FOUND)) + " inaccessible colors."
-			create_error_json(TYPE, SEVERITY, fullCSSStyleLink, text=text, meta=str(INACCESSIBLE_COLORS_FOUND))
+			create_error_json(TYPE, SEVERITY, fullCSSStyleLink, text=text, meta=str(INACCESSIBLE_COLORS_FOUND), socketio=socketio)
 
 		if contrast_success_bool:
-			create_success_json("accessibility for colorblind users")
+			create_success_json("accessibility for colorblind users", socketio)
 
 
-def find_contrast(soup, URL, first_bool, stylesheetName, fullCSSStyleLink, rule):
+def find_contrast(soup, URL, first_bool, stylesheetName, fullCSSStyleLink, rule, socketio):
 	TYPE = "accessibility for colorblind users"
 	SEVERITY = "warning"
 	inaccessible_colors = []
 
-	if first_bool: 
-		create_print_json(TYPE)
+	if first_bool:
+		create_print_json(TYPE, socketio)
 
 	cssString = rule.cssText
 	
@@ -135,16 +134,42 @@ def find_contrast(soup, URL, first_bool, stylesheetName, fullCSSStyleLink, rule)
 		color = str(rule.style['color'])
 		backgroundColor = str(rule.style['background-color'])
 
+		# get them both in hex
+		if color.startswith("#"):
+			colorHex = color
+		elif not color.startswith("rgb"):
+			colorHex = webcolors.name_to_hex(color)
+		else: # rgb
+			colorHex = webcolors.rgb_to_hex(color)
+
+		
+		if backgroundColor.startswith("#"):
+			backgroundHex = backgroundColor
+		elif not backgroundColor.startswith("rgb"):
+			backgroundHex = webcolors.name_to_hex(backgroundColor)
+		else:
+			backgroundHex = webcolors.rgb_to_hex(backgroundColor)
+
+		# now we have them both in hex
+		print("---------")
+		print(colorHex)
+		print(backgroundHex)
+		val = distinguish_hex(colorHex, backgroundHex)
+		if val:
+			print(val)
+			return False
+		else:
+			return True
 
 
 # searches for red, green
-def find_inaccessible_colors(soup, URL, cssProperty, first_bool, stylesheetName, fullCSSStyleLink, rule):
+def find_inaccessible_colors(soup, URL, cssProperty, first_bool, stylesheetName, fullCSSStyleLink, rule, socketio):
 	TYPE = "inaccessible colors"
 	SEVERITY = "warning"
 	inaccessible_colors = ["red", "green", "#ff0000", "#00ff00"]
 
-	if first_bool: 
-		create_print_json(TYPE)
+	if first_bool:
+		create_print_json(TYPE, socketio)
 
 	# if font-size and it's value is in pixels
 	if cssProperty.name == "color":
@@ -198,13 +223,13 @@ def convert_hex_to_rgb(h):
 	return "rgb" + str(rgbTuple)
 
 # loops over properties
-def find_small_text(soup, URL, cssProperty, first_bool, stylesheetName, fullCSSStyleLink, rule):
+def find_small_text(soup, URL, cssProperty, first_bool, stylesheetName, fullCSSStyleLink, rule, socketio):
 	MINIMUM_SIZE_FONT = 12
 	TYPE = "small text"
 	SEVERITY = "warning"
 
 	if first_bool:
-		create_print_json(TYPE)
+		create_print_json(TYPE, socketio)
 
 	# if font-size and it's value is in pixels
 	if cssProperty.name == "font-size" and str(cssProperty.value)[-2:] == "px": # last 2 characters
@@ -212,14 +237,14 @@ def find_small_text(soup, URL, cssProperty, first_bool, stylesheetName, fullCSSS
 		size = int(str(cssProperty.value[:-2])) # everything except last 2 characters
 		if size < MINIMUM_SIZE_FONT:
 			text = "You have a font size of " + str(size) + "px on stylesheet: " + stylesheetName
-			create_error_json(TYPE, SEVERITY, fullCSSStyleLink, text=text, meta=rule.cssText)
+			create_error_json(TYPE, SEVERITY, fullCSSStyleLink, text=text, meta=rule.cssText, socketio=socketio)
 			return False # error found
 
-def find_broken_links(soup, URL):
+def find_broken_links(soup, URL, socketio):
 	TYPE = "possible broken link"
 	SEVERITY = "error"
 	DOMAIN = get_domain(URL)
-	create_print_json(TYPE)
+	create_print_json(TYPE, socketio)
 
 	for htmlAnchor in soup.find_all('a'):
 		link = htmlAnchor.get('href')
@@ -228,62 +253,68 @@ def find_broken_links(soup, URL):
 		else:
 			try:
 				response = requests.get(link, headers=headers)
-			except: 
+			except:
 				link = DOMAIN + link
 				response = requests.get(link, headers=headers)
 
 			text = "link: " + link
-			create_print_json(text)
+			create_print_json(text, socketio)
 			if int(response.status_code) >= 301 and int(response.status_code) != 999:
 				text = "You have a link which returned a bad " + str(response.status_code) + " response code."
-				create_error_json(TYPE, SEVERITY, URL, text=text, meta=htmlAnchor)
+				create_error_json(TYPE, SEVERITY, URL, text=text, meta=htmlAnchor, socketio=socketio)
 
-def find_too_many_h1s(soup, URL):
+def find_too_many_h1s(soup, URL, socketio):
 	TYPE = "too many header elements"
 	SEVERITY = "warning"
-	create_print_json(TYPE)
+	create_print_json(TYPE, socketio)
 
 	h1TagsList = soup.find_all('h1')
 
 	if len(h1TagsList) > 1:
 		meta = h1TagsList
 		text = "You have " + str(len(h1TagsList)) + " h1 elements on " + str(URL)
-		create_error_json(TYPE, SEVERITY, URL, text=text, meta=meta)
+		create_error_json(TYPE, SEVERITY, URL, text=text, meta=meta, socketio=socketio)
 	else:
-		create_success_json(TYPE)
+		create_success_json(TYPE, socketio)
 
 # severity types: warning, error
-def create_error_json(type, severity, URL, lineNumber=-1, text="", meta=""):
+def create_error_json(type, severity, URL, socketio, lineNumber=-1, text="", meta=""):
 	json = {"type": type, "severity": severity, "URL": URL, "lineNumber": lineNumber, "text": text, "meta": str(meta)}
 	print(json)
+	if PRODUCTION:
+		socketio.emit('data', json)
 	return json
 
 # severity types: info
-def create_print_json(TYPE):
+def create_print_json(TYPE, socketio):
 	json = {"severity": "info", "text": ("Running analysis of " + str(TYPE) + "... ")}
 	print(json)
+	if PRODUCTION:
+		socketio.emit('data', json)
 	return json
 
 # severity type: success
-def create_success_json(TYPE):
-	json = {"severity": "success", "text": "Success, " + (str(TYPE)) + " test passed!"}
+def create_success_json(TYPE, socketio):
+	json = {"severity": "success", "type": str(TYPE), "text": "Success, " + (str(TYPE)) + " test passed!"}
 	print(json)
+	if PRODUCTION:
+		socketio.emit('data', json)
 	return json
 
 
-def find_inline_styles(soup, URL):
+def find_inline_styles(soup, URL, socketio):
 	TYPE = 'inline_styles'
 	SEVERITY = 'warning'
-	
-	create_print_json(TYPE)
+
+	create_print_json(TYPE, socketio)
 
 	error_list =  soup.find_all(style=True)
 	if len(error_list) == 0:
-		create_success_json(TYPE)
+		create_success_json(TYPE, socketio)
 	else:
-		for error in error_list: 
+		for error in error_list:
 			text = "You have an inline styled elements on " + str(URL)
-			create_error_json(TYPE, SEVERITY, URL, text=text, meta=error)
+			create_error_json(TYPE, SEVERITY, URL, text=text, meta=error, socketio=socketio)
 
 def find_spelling_errors(soup, URL):
 	TYPE = 'spell_check'
@@ -301,7 +332,7 @@ def find_spelling_errors(soup, URL):
 	for word in text.split(' '):
 		if word not in word_set:
 			if word != '' and word[0] not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
-				correct_spelling = spell.correction(word) 
+				correct_spelling = spell.correction(word)
 				if correct_spelling != word:
 					misspelled_word = True
 					text = "You have a misspelled word at " + str(URL)
@@ -309,37 +340,37 @@ def find_spelling_errors(soup, URL):
 	if not misspelled_word:
 		create_success_json(TYPE)
 
-def find_broken_buttons(soup, URL):
+def find_broken_buttons(soup, URL, socketio):
 	TYPE = 'broken_button'
 	SEVERITY = 'warning'
-	create_print_json(TYPE)
+	create_print_json(TYPE, socketio)
 	broken_button = False
 
 	button_href = soup.find_all('button', {"href": False})
 	if len(button_href) != 0:
 		text = "You have a button without an href at " + str(URL)
-		create_error_json(TYPE, SEVERITY, URL, text=text, meta=button_href) 
+		create_error_json(TYPE, SEVERITY, URL, text=text, meta=button_href, socketio=socketio)
 		broken_button = True
 
 	for tag in soup.find_all('button'):
 		for broken_tag in tag.findAll('a', {'href': False}):
 			text = "You have a button without an href at " + str(URL)
-			create_error_json(TYPE, SEVERITY, URL, text=text, meta=broken_tag)
+			create_error_json(TYPE, SEVERITY, URL, text=text, meta=broken_tag, socketio=socketio)
 			broken_button = True
 
 	for tag in soup.find_all('div'):
 		for broken_tag in tag.findAll('a', {'href': False}):
 			text = "You have a button without an href at " + str(URL)
-			create_error_json(TYPE, SEVERITY, URL, text=text, meta=broken_tag)
+			create_error_json(TYPE, SEVERITY, URL, text=text, meta=broken_tag, socketio=socketio)
 			broken_button = True
 
 	for broken_tag in tag.findAll('a', {'href': False}):
 		text = "You have a button without an href at " + str(URL)
-		create_error_json(TYPE, SEVERITY, URL, text=text, meta=broken_tag)
+		create_error_json(TYPE, SEVERITY, URL, text=text, meta=broken_tag, socketio=socketio)
 		broken_button = True
-			
+
 	if not broken_button:
-		create_success_json(TYPE)
+		create_success_json(TYPE, socketio)
 
 def rgb2hex(r, g, b):
 	return '#%02x%02x%02x' % (r, g, b)
@@ -347,7 +378,6 @@ def rgb2hex(r, g, b):
 def hex2rgb(hex_str):
 	m = re.match(
 		r'^\#?([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$', hex_str)
-	assert m
 	return (int(m.group(1), 16), int(m.group(2), 16), int(m.group(3), 16))
 
 
@@ -356,6 +386,9 @@ def distinguish_hex(hex1, hex2, mindiff=50):
 	Make sure two colors (specified as hex codes) are sufficiently different.
 	Returns the two colors (possibly changed). mindiff is the minimal
 	difference in lightness.
+
+	RETURNS TRUE IF NO ISSUE
+	RETURN CHANGED COLORS IF RECOMMENDATION TO CHANGE
 	"""
 
 	rgb1 = hex2rgb(hex1)
@@ -368,7 +401,7 @@ def distinguish_hex(hex1, hex2, mindiff=50):
 	l2 = hls2[1]
 
 	if abs(l1 - l2) >= mindiff:  # ok already
-		return (hex1, hex2)
+		return True
 
 	restdiff = abs(l1 - l2) - mindiff
 	if l1 >= l2:
@@ -386,8 +419,11 @@ def distinguish_hex(hex1, hex2, mindiff=50):
 	rgb1 = colorsys.hls_to_rgb(*hsl1)
 	rgb2 = colorsys.hls_to_rgb(*hsl2)
 
-	return (rgb2hex(*rgb1), rgb2hex(*rgb2))		
-
+	print(rgb1)
+	print(rgb2)
+	#return (rgb2hex(*rgb1), rgb2hex(*rgb2))
+		
 ######## DRIVER ############
-FRONT_END_URL = "https://www.alexanderdanilowicz.com"
-recieve_front_end_link(FRONT_END_URL)
+if __name__ == "__main__":
+	FRONT_END_URL = "https://www.alexanderdanilowicz.com"
+	recieve_front_end_link(FRONT_END_URL, "DEBUG_SOCKET")
