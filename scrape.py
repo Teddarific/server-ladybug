@@ -52,8 +52,8 @@ def recieve_front_end_link(URL, socketio):
 		#css_parse(soup, URL, socketio)
 		# find_spelling_errors(soup, URL) - NEED THOMAS TO FIX IMPORT ERROR
 		find_broken_buttons(soup, URL, socketio)
-	#else:
-		#css_parse(soup, URL, socketio)
+	else:
+		css_parse(soup, URL, socketio)
 
 	######### WORKING ON ############
 	# find_respsonsive()
@@ -134,8 +134,14 @@ def find_contrast(soup, URL, first_bool, stylesheetName, fullCSSStyleLink, rule,
 		color = str(rule.style['color'])
 		backgroundColor = str(rule.style['background-color'])
 
+		# dumb edge case
+		if color == "#FFF" or color == "#fff":
+			color = "#FFFFFF"
+		if backgroundColor == "#FFF" or backgroundColor == "#fff":
+			backgroundColor = "#FFFFFF"
+
 		# get them both in hex
-		if color.startswith("#"):
+		if color.startswith("#") and len(str(color)) == 7:
 			colorHex = color
 		elif not color.startswith("rgb"):
 			colorHex = webcolors.name_to_hex(color)
@@ -143,7 +149,7 @@ def find_contrast(soup, URL, first_bool, stylesheetName, fullCSSStyleLink, rule,
 			colorHex = webcolors.rgb_to_hex(color)
 
 		
-		if backgroundColor.startswith("#"):
+		if backgroundColor.startswith("#") and len(str(backgroundColor)) == 7:
 			backgroundHex = backgroundColor
 		elif not backgroundColor.startswith("rgb"):
 			backgroundHex = webcolors.name_to_hex(backgroundColor)
@@ -151,9 +157,6 @@ def find_contrast(soup, URL, first_bool, stylesheetName, fullCSSStyleLink, rule,
 			backgroundHex = webcolors.rgb_to_hex(backgroundColor)
 
 		# now we have them both in hex
-		print("---------")
-		print(colorHex)
-		print(backgroundHex)
 		val = distinguish_hex(colorHex, backgroundHex)
 		if val:
 			print(val)
