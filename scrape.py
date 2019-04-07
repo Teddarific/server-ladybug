@@ -37,12 +37,16 @@ def recieve_link(URL):
 	if PRODUCTION:
 		find_too_many_h1s(soup, URL)
 		find_small_text(soup, URL)
+		find_inline_styles(soup, URL)
 
 	######### WORKING ON ############
 
-	find_broken_links(soup, URL)
+	# find_broken_links(soup, URL)
 	# find_bad_colors()
 	# find_light_text()
+	# find_respsonsive()
+	# find_light_text()
+
 	# find_respsonsive()
 
 def find_broken_links(soup, URL):
@@ -119,5 +123,27 @@ def create_success_json(TYPE):
 	print(json)
 	return json
 
+def convert_soup_to_str_list(soup):
+	soupStringList = (str(soup).split("\n"))
+	return soupStringList
+	find_inline_styles(soup)
+
+
+def find_inline_styles(soup, URL):
+	TYPE = 'inline_styles'
+	SEVERITY = 'warning'
+	
+	create_print_json(TYPE)
+
+	error_list =  soup.find_all(style=True)
+	if len(error_list) == 0:
+		create_success_json(TYPE)
+	else:
+		for error in error_list: 
+			text = "You have an inline styled elements on " + str(URL)
+			create_error_json(TYPE, SEVERITY, URL, text=text, meta=error)
+
+
+######## DRIVER ############
 URL = "http://www.alexanderdanilowicz.com/"
 recieve_link(URL)
