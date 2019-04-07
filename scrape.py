@@ -51,7 +51,12 @@ def recieve_front_end_link(URL, socketio):
 					run_prod(soup, curr_url, socketio)
 				else:
 					run_debug(soup, curr_url, socketio)
-				
+				for link in soup.findAll('a', attrs={'href': re.compile("^((?!http).)*$")}):
+					l = link.get('href')
+					linked_page = "http://" + base_url + "/" + l
+					if linked_page not in visited_set and urlparse(linked_page).netloc == base_url and not any(ext in linked_page for ext in BAD_EXTENSIONS): 
+					   stack.append(linked_page)
+
 				for link in soup.findAll('a', attrs={'href': re.compile("^https?://")}):
 					linked_page = link.get('href')
 					if linked_page not in visited_set and urlparse(linked_page).netloc == base_url and not any(ext in linked_page for ext in BAD_EXTENSIONS): 
@@ -472,6 +477,6 @@ def distinguish_hex(hex1, hex2, mindiff=50):
 				
 ######## DRIVER ############
 if __name__ == "__main__":
-	FRONT_END_URL = "https://www.alexanderdanilowicz.com"
+	FRONT_END_URL = "https://www.alexanderdanilowicz.com/second"
 	#FRONT_END_URL = "https://avalonbagelstoburgers.com/"
 	recieve_front_end_link(FRONT_END_URL, "DEBUG_SOCKET")
