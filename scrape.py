@@ -6,8 +6,10 @@ import cssutils
 import requests
 import logging
 import re
+import colorsys
 
-PRODUCTION = True
+
+PRODUCTION = False
 
 headers = {
 	"user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36",
@@ -47,12 +49,12 @@ def recieve_front_end_link(URL):
 		# 	find_inaccessible_colors() - DONE
 		# 	find_contrast_text() - WORKING ON
 		css_parse(soup, URL)
-		# find_spelling_errors(soup, URL)
+		# find_spelling_errors(soup, URL) - NEED THOMAS TO FIX IMPORT ERROR
 		find_broken_buttons(soup, URL)
-
+	else:
+		css_parse(soup, URL)
 
 	######### WORKING ON ############
-	# css_parse(soup, URL)
 	# find_respsonsive()
 
 def css_parse(soup, URL):
@@ -65,14 +67,13 @@ def css_parse(soup, URL):
 	for cssLink in cssLinkLists:
 		if "bootstrap" in str(cssLink) or "vendor" in str(cssLink) or "http" in str(cssLink):
 			pass
-		else:
+		elif cssLink not in finalCSSLinks:
 			finalCSSLinks.append(cssLink)
 
 	first_bool = True
 	smt_success_bool = True # assume successs
 	inaccess_success_bool = True # assume success
 	contrast_success_bool = True # assume success
-
 	for item in finalCSSLinks:
 		stylesheetName = item['href']
 		create_print_json("css stylesheet: " + str(stylesheetName))
@@ -83,9 +84,9 @@ def css_parse(soup, URL):
 			for rule in sheet:
 				if rule.type == rule.STYLE_RULE:
 
-					#contrast_bool = find_contrast(soup, URL, first_bool, stylesheetName, fullCSSStyleLink, rule)
-					#if contrast_bool == False:
-						#contrast_success_bool = False # once it turns false, it's not going back to True
+					contrast_bool = find_contrast(soup, URL, first_bool, stylesheetName, fullCSSStyleLink, rule)
+					if contrast_bool == False:
+						contrast_success_bool = False # once it turns false, it's not going back to True
 
 					# HERE WE LOOP OVER THE PROPERTIES
 					# THIS IS WHERE WE CALL ALL THE FUNCTIONS TO CHECK AT THE SAME TIME
@@ -127,8 +128,14 @@ def find_contrast(soup, URL, first_bool, stylesheetName, fullCSSStyleLink, rule)
 		create_print_json(TYPE)
 
 	cssString = rule.cssText
-	if (re.search('\scolor:', cssString) is not None) and "background-color:" in cssString:
-		print(rule.cssText)
+	
+	# if (re.search('\scolor:', cssString) is not None) and "background-color:" in cssString:
+	if rule.style['color'] and rule.style['background-color']:
+		
+		color = str(rule.style['color'])
+		backgroundColor = str(rule.style['background-color'])
+
+
 
 # searches for red, green
 def find_inaccessible_colors(soup, URL, cssProperty, first_bool, stylesheetName, fullCSSStyleLink, rule):
@@ -247,7 +254,7 @@ def find_too_many_h1s(soup, URL):
 
 # severity types: warning, error
 def create_error_json(type, severity, URL, lineNumber=-1, text="", meta=""):
-	json = {"type": type, "severity": severity, "URL": URL, "lineNumber": lineNumber, "text": text, "meta": meta}
+	json = {"type": type, "severity": severity, "URL": URL, "lineNumber": lineNumber, "text": text, "meta": str(meta)}
 	print(json)
 	return json
 
@@ -334,7 +341,52 @@ def find_broken_buttons(soup, URL):
 	if not broken_button:
 		create_success_json(TYPE)
 
-		
+def rgb2hex(r, g, b):
+	return '#%02x%02x%02x' % (r, g, b)
+
+def hex2rgb(hex_str):
+	m = re.match(
+		r'^\#?([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$', hex_str)
+	assert m
+	return (int(m.group(1), 16), int(m.group(2), 16), int(m.group(3), 16))
+
+
+def distinguish_hex(hex1, hex2, mindiff=50):
+	"""
+	Make sure two colors (specified as hex codes) are sufficiently different.
+	Returns the two colors (possibly changed). mindiff is the minimal
+	difference in lightness.
+	"""
+
+	rgb1 = hex2rgb(hex1)
+	rgb2 = hex2rgb(hex2)
+
+	hls1 = colorsys.rgb_to_hls(*rgb1)
+	hls2 = colorsys.rgb_to_hls(*rgb2)
+
+	l1 = hls1[1]
+	l2 = hls2[1]
+
+	if abs(l1 - l2) >= mindiff:  # ok already
+		return (hex1, hex2)
+
+	restdiff = abs(l1 - l2) - mindiff
+	if l1 >= l2:
+		l1 = min(255, l1 + restdiff / 2)
+		l2 = max(0, l1 - mindiff)
+		l1 = min(255, l2 + mindiff)
+	else:
+		l2 = min(255, l2 + restdiff / 2)
+		l1 = max(0, l2 - mindiff)
+		l2 = min(255, l1 + mindiff)
+
+	hsl1 = (hls1[0], l1, hls1[2])
+	hsl2 = (hls2[0], l2, hls2[2])
+
+	rgb1 = colorsys.hls_to_rgb(*hsl1)
+	rgb2 = colorsys.hls_to_rgb(*hsl2)
+
+	return (rgb2hex(*rgb1), rgb2hex(*rgb2))		
 
 ######## DRIVER ############
 FRONT_END_URL = "https://www.alexanderdanilowicz.com"
