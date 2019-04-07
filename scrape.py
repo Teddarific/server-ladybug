@@ -348,7 +348,7 @@ def create_success_json(TYPE, URL, socketio):
 
 
 def find_inline_styles(soup, URL, socketio):
-	TYPE = 'inline_styles'
+	TYPE = 'inline styles'
 	SEVERITY = 'warning'
 
 	create_print_json(TYPE, socketio)
