@@ -1,4 +1,6 @@
 import requests
+import paramiko
+
 
 PRODUCTION = False
 
@@ -11,8 +13,8 @@ def recieve_link(URL):
 		return
 
 	##### DELETE WHEN DONE TESTING #####
-	test_response_time(URL)
-	test_open_routes(URL)
+	
+	test_basic_passwords(URL)
 
 	######## COMPLETED ############
 	if PRODUCTION:
@@ -26,7 +28,7 @@ def test_basic_passwords(URL):
 	TYPE = "basic password security"
 	SEVERITY = "error"
 	#top 25 passwords 2018
-	passwords = [
+	PASSWORDS = [
 		"123456",
 		"password",
 		"123456789",
@@ -63,8 +65,57 @@ def test_basic_passwords(URL):
 		"qazwsx"
 	]
 
-	create_print_json(TYPE)
+	USERS = [
+		"root",
+		"admin",
+		"Admin",
+		"test",
+		"guest",
+		"info",
+		"adm",
+		"user",
+		"administrator",
+		"Administrator",
+		"username",
+		"user1",
+		"pos",
+		"demo",
+	]
 
+	create_print_json(TYPE)
+	
+	print(user_pw_combinations(USERS,PASSWORDS, "localhost"))
+
+def user_pw_combinations(USERS, PASSWORDS, URL):
+	TYPE = "basic password security"
+	SEVERITY = "error"
+	for user in USERS:
+		for password in PASSWORDS:
+			print(user)
+			print(password)
+			try:
+				client = paramiko.SSHClient()
+				client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+				conn = client.connect(URL, username=user, password=password)
+				if conn is None:
+					create_error_json(TYPE, SEVERITY, URL)
+				client.close()
+			except paramiko.AuthenticationException:
+				output="Authentication Failed"
+				create_success_json(TYPE)
+				print(output)
+			except ConnectionResetError:
+				create_success_json(TYPE)
+				print("reset")
+				return ("good")
+			except paramiko.ssh_exception.SSHException:
+				create_success_json(TYPE)
+				print("ssh ecept")
+				return ("good")
+			except Exception:
+				create_success_json(TYPE)
+				print("exception")
+				return ("good")
 
 
 def test_response_time(URL):
