@@ -10,12 +10,13 @@ def get_domain(URL):
 
 def recieve_link(URL):
     response = urllib.request.urlopen(URL)
-    print(response) # TOOD - error handling
+    #print(response) # TOOD - error handling
 
     soup = BeautifulSoup(response, from_encoding=response.info().get_param('charset'), features="lxml")
     soupStringList = convert_soup_to_str_list(soup)
 
-    find_too_many_h1s(soup, URL)
+#    find_too_many_h1s(soup, URL)
+    #find_too_many_headers(soup)
 
     # find_bad_colors()
 
@@ -24,6 +25,7 @@ def recieve_link(URL):
     # find_light_text()
 
     # find_respsonsive()
+    find_inline_styles(soup, URL)
 
 def find_too_many_h1s(soup, URL):
     TYPE = "too many header elements"
@@ -58,6 +60,36 @@ def create_success_json(TYPE):
 def convert_soup_to_str_list(soup):
     soupStringList = (str(soup).split("\n"))
     return soupStringList
+    find_inline_styles(soup)
+
+#def find_too_many_headers(soup):
+#    PRINT_NAME = "too many headers"
+#    TYPE = "too-many-headers"
+#    SEVERITY = "warning"
+#    my_print(PRINT_NAME)
+
+    # code to find ...
+
+# printName example: "small text", "too many headers"
+def my_print(printName):
+    print("Looking for " + str(printName) + "... ")
 
 URL = "http://www.alexanderdanilowicz.com/"
+
+def find_inline_styles(soup, URL):
+    TYPE = 'inline_styles'
+    SEVERITY = 'warning'
+    
+    create_print_json(TYPE)
+
+    create_success_json(TYPE)
+    error_list =  soup.find_all(style=True)
+    if len(error_list) == 0:
+        create_print_json(TYPE)
+    else:
+        for error in error_list: 
+            text = "You have " + str(len(error_list)) + " inline styled elements on " + str(URL)
+            create_error_json(TYPE, SEVERITY, URL, text=text, meta=error)
+
+
 recieve_link(URL)
