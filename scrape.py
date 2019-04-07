@@ -1,10 +1,14 @@
 from bs4 import BeautifulSoup
-import urllib.request
+from spellchecker import SpellChecker
 from urllib.parse import urlparse
+import urllib.request
 import cssutils
 import requests
 import logging
 import re
+
+
+
 
 headers = {
     "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36",
@@ -38,12 +42,13 @@ def recieve_link(URL):
 
     # find_bad_colors()
 
-    find_small_text(soup, URL)
+    # find_small_text(soup, URL)
 
     # find_light_text()
 
     # find_respsonsive()
-    find_inline_styles(soup, URL)
+    # find_inline_styles(soup, URL)
+    find_spelling_errors(soup, URL)
 
 def find_broken_links(soup, URL):
     TYPE = "broken links"
@@ -154,5 +159,28 @@ def find_inline_styles(soup, URL):
             text = "You have " + str(len(error_list)) + " inline styled elements on " + str(URL)
             create_error_json(TYPE, SEVERITY, URL, text=text, meta=error)
 
+def find_spelling_errors(soup, URL):
+    TYPE = 'spell_check'
+    SEVERITY = 'warning'
+    create_print_json(TYPE)
+
+    [s.extract() for s in soup('script')]
+    text = soup.get_text()
+    text = re.sub(r'[\n]', '', text)
+    spell = SpellChecker()
+    with open('google-10000-english.txt', 'r') as read_file:
+        word_set = { line.strip() for line in read_file }
+
+    misspelled_word = False
+    for word in text.split(' '):
+        if word not in word_set:
+            if word != '' and word[0] not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
+                correct_spelling = spell.correction(word) 
+                if correct_spelling != word:
+                    misspelled_word = True
+                    text = "You have a misspelled word at " + str(URL)
+                    create_error_json(TYPE, SEVERITY, URL, text=text, meta=word)
+    if not misspelled_word:
+        create_success_json(TYPE)
 
 recieve_link(URL)
