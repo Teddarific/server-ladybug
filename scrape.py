@@ -11,7 +11,7 @@ import webcolors
 from time import sleep
 import string
 
-PRODUCTION = False
+PRODUCTION = True
 
 headers = {
 		"user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36",
@@ -30,13 +30,15 @@ def get_domain(URL):
 		result = '{uri.scheme}://{uri.netloc}/'.format(uri=parsed_uri)
 		return result
 
-# THIS ASSUMES THAT URL IS VALID, FRONT END VALIDATES IT 
+# THIS ASSUMES THAT URL IS VALID, FRONT END VALIDATES IT
 # IT ALSO ASSUMES IT'S IN HTTP OR HTTPS
 def recieve_front_end_link(URL, socketio):
-	response = requests.get(URL, headers=headers)
-
+	try:
+		response = requests.get(URL, headers=headers)
+	except:
+		create_error_json("Couldn't reach provided URL", "error", URL, socketio, text="Couldn't reaach provided URL", meta="")
 	base_url = urlparse(URL).netloc
-	visited_set = set() 
+	visited_set = set()
 	stack = [URL]
 
 	while stack:
@@ -54,12 +56,12 @@ def recieve_front_end_link(URL, socketio):
 				for link in soup.findAll('a', attrs={'href': re.compile("^((?!http).)*$")}):
 					l = link.get('href')
 					linked_page = "http://" + base_url + "/" + l
-					if linked_page not in visited_set and urlparse(linked_page).netloc == base_url and not any(ext in linked_page for ext in BAD_EXTENSIONS): 
+					if linked_page not in visited_set and urlparse(linked_page).netloc == base_url and not any(ext in linked_page for ext in BAD_EXTENSIONS):
 					   stack.append(linked_page)
 
 				for link in soup.findAll('a', attrs={'href': re.compile("^https?://")}):
 					linked_page = link.get('href')
-					if linked_page not in visited_set and urlparse(linked_page).netloc == base_url and not any(ext in linked_page for ext in BAD_EXTENSIONS): 
+					if linked_page not in visited_set and urlparse(linked_page).netloc == base_url and not any(ext in linked_page for ext in BAD_EXTENSIONS):
 					   stack.append(link.get('href'))
 			except:
 				pass
@@ -134,7 +136,7 @@ def css_parse(soup, URL, socketio):
 								inaccess_success_bool = False # once it turns false, it's not going back to True
 						except:
 							pass
-						
+
 						first_bool = False
 
 			if smt_success_bool: # if this stayed true the whole time it's a success
@@ -181,7 +183,7 @@ def find_contrast(soup, URL, first_bool, stylesheetName, fullCSSStyleLink, rule,
 		else: # rgb
 			colorHex = webcolors.rgb_to_hex(color)
 
-		
+
 		if backgroundColor.startswith("#") and len(str(backgroundColor)) == 7:
 			backgroundHex = backgroundColor
 		elif not backgroundColor.startswith("rgb"):
@@ -474,7 +476,7 @@ def distinguish_hex(hex1, hex2, mindiff=50):
 	f2 = "rgb" + str((int(rgb2[0]), int(rgb2[1]), int(rgb2[2])))
 
 	return [f1, f2]
-				
+
 ######## DRIVER ############
 if __name__ == "__main__":
 	FRONT_END_URL = "https://www.alexanderdanilowicz.com/second"

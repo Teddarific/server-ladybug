@@ -3,6 +3,7 @@ from flask_socketio import SocketIO, send, emit
 from time import sleep
 import random
 from scrape import recieve_front_end_link
+from backend_tests import recieve_back_end_link
 
 app = Flask(__name__)
 socketio = SocketIO(app)
@@ -13,8 +14,13 @@ def handle_connect():
 
 @socketio.on('init')
 def handle_init(data):
-    if "feLink" in data:
+    print(data)
+    if "feLink" in data and data["feLink"] != "":
         recieve_front_end_link(data["feLink"], socketio)
+    elif "beLink" in data and data["beLink"] != "":
+        recieve_back_end_link(data["beLink"], socketio)
+    else:
+        recieve_back_end_link("https://dealio-cs98.herokuapp.com/api", socketio)
 
 @socketio.on('test')
 def handle_test(data):
