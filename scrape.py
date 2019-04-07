@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
-import urllib.request
+# from spellchecker import SpellChecker
 from urllib.parse import urlparse
+import urllib.request
 import cssutils
 import requests
 import logging
@@ -46,6 +47,8 @@ def recieve_front_end_link(URL):
 		# 	find_inaccessible_colors() - DONE
 		# 	find_contrast_text() - WORKING ON
 		css_parse(soup, URL)
+		# find_spelling_errors(soup, URL)
+		find_broken_buttons(soup, URL)
 
 
 	######### WORKING ON ############
@@ -275,6 +278,63 @@ def find_inline_styles(soup, URL):
 			text = "You have an inline styled elements on " + str(URL)
 			create_error_json(TYPE, SEVERITY, URL, text=text, meta=error)
 
+def find_spelling_errors(soup, URL):
+	TYPE = 'spell_check'
+	SEVERITY = 'warning'
+	create_print_json(TYPE)
+
+	[s.extract() for s in soup('script')]
+	text = soup.get_text()
+	text = re.sub(r'[\n]', '', text)
+	spell = SpellChecker()
+	with open('google-10000-english.txt', 'r') as read_file:
+		word_set = { line.strip() for line in read_file }
+
+	misspelled_word = False
+	for word in text.split(' '):
+		if word not in word_set:
+			if word != '' and word[0] not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
+				correct_spelling = spell.correction(word) 
+				if correct_spelling != word:
+					misspelled_word = True
+					text = "You have a misspelled word at " + str(URL)
+					create_error_json(TYPE, SEVERITY, URL, text=text, meta=word)
+	if not misspelled_word:
+		create_success_json(TYPE)
+
+def find_broken_buttons(soup, URL):
+	TYPE = 'broken_button'
+	SEVERITY = 'warning'
+	create_print_json(TYPE)
+	broken_button = False
+
+	button_href = soup.find_all('button', {"href": False})
+	if len(button_href) != 0:
+		text = "You have a button without an href at " + str(URL)
+		create_error_json(TYPE, SEVERITY, URL, text=text, meta=button_href) 
+		broken_button = True
+
+	for tag in soup.find_all('button'):
+		for broken_tag in tag.findAll('a', {'href': False}):
+			text = "You have a button without an href at " + str(URL)
+			create_error_json(TYPE, SEVERITY, URL, text=text, meta=broken_tag)
+			broken_button = True
+
+	for tag in soup.find_all('div'):
+		for broken_tag in tag.findAll('a', {'href': False}):
+			text = "You have a button without an href at " + str(URL)
+			create_error_json(TYPE, SEVERITY, URL, text=text, meta=broken_tag)
+			broken_button = True
+
+	for broken_tag in tag.findAll('a', {'href': False}):
+		text = "You have a button without an href at " + str(URL)
+		create_error_json(TYPE, SEVERITY, URL, text=text, meta=broken_tag)
+		broken_button = True
+			
+	if not broken_button:
+		create_success_json(TYPE)
+
+		
 
 ######## DRIVER ############
 FRONT_END_URL = "https://www.alexanderdanilowicz.com"
