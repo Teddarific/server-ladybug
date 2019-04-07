@@ -1,30 +1,32 @@
 import requests
 import paramiko
+from scrape import create_error_json, create_print_json, create_success_json
 
+PRODUCTION = True
 
-PRODUCTION = False
-
-def recieve_link(URL):
+def recieve_back_end_link(URL, socketio):
 	try:
 		response = requests.get(URL)
-		print("Success! URL is valid.")
+		create_print_json("Confirmed valid API URL", URL, socketio)
+		print("Confirmed provided URL is valid.")
 	except:
+		create_error_json("Provided invalid API URL", "error", URL, socketio=socketio, text="The provided API URL could not be successfully pinged", meta="")
 		print("Provided URL is invalid.")
 		return
 
 	##### DELETE WHEN DONE TESTING #####
-	
-	test_basic_passwords(URL)
+
+	test_basic_passwords(URL, socketio)
 
 	######## COMPLETED ############
 	if PRODUCTION:
-		test_open_routes(URL)
-		test_response_time(URL)
+		test_open_routes(URL, socketio)
+		test_response_time(URL, socketio)
 
 
 	######### WORKING ON ############
 
-def test_basic_passwords(URL):
+def test_basic_passwords(URL, socketio):
 	TYPE = "basic password security"
 	SEVERITY = "error"
 	#top 25 passwords 2018
@@ -82,11 +84,11 @@ def test_basic_passwords(URL):
 		"demo",
 	]
 
-	create_print_json(TYPE)
-	
-	print(user_pw_combinations(USERS,PASSWORDS, "localhost"))
+	create_print_json(TYPE, socketio)
 
-def user_pw_combinations(USERS, PASSWORDS, URL):
+	print(user_pw_combinations(USERS,PASSWORDS, URL, socketio))
+
+def user_pw_combinations(USERS, PASSWORDS, URL, socketio):
 	TYPE = "basic password security"
 	SEVERITY = "error"
 	for user in USERS:
@@ -98,39 +100,40 @@ def user_pw_combinations(USERS, PASSWORDS, URL):
 				client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 				conn = client.connect(URL, username=user, password=password)
 				if conn is None:
-					create_error_json(TYPE, SEVERITY, URL)
+					create_error_json(TYPE, SEVERITY, URL, socketio=socketio, text="This API is vulnerable to ssh")
 				client.close()
 			except paramiko.AuthenticationException:
 				output="Authentication Failed"
-				create_success_json(TYPE)
+				create_success_json(TYPE, URL, socketio)
 				print(output)
 			except ConnectionResetError:
-				create_success_json(TYPE)
+				create_success_json(TYPE, URL, socketio)
 				print("reset")
 				return ("good")
 			except paramiko.ssh_exception.SSHException:
-				create_success_json(TYPE)
+				create_success_json(TYPE, URL, socketio)
 				print("ssh ecept")
 				return ("good")
 			except Exception:
-				create_success_json(TYPE)
+				create_success_json(TYPE, URL, socketio)
 				print("exception")
 				return ("good")
 
 
-def test_response_time(URL):
+def test_response_time(URL, socketio):
 	TYPE = "response time"
 	SEVERITY = "info"
-	create_print_json(TYPE)
+	create_print_json(TYPE, socketio)
 	response_time = requests.get(URL).elapsed.total_seconds()
 	print(response_time)
 	#according to Google/speedtests
 	if (response_time > 0.2):
 		SEVERITY = "warning"
-	create_error_json(TYPE, SEVERITY, URL, meta=response_time)
+		create_error_json(TYPE, SEVERITY, URL, meta=response_time, socketio=socketio, text="Response time is slower than typical standards")
+	else:
+		create_success_json(TYPE, URL, socketio)
 
-
-def test_open_routes(URL):
+def test_open_routes(URL, socketio):
 	api_route = ["/api/", "/" ]
 	routes= [
 	"main",
@@ -200,7 +203,7 @@ def test_open_routes(URL):
 	access_denied_codes = [400, 401, 403, 404]
 	TYPE = "open routes"
 	SEVERITY = "warning"
-	create_print_json(TYPE)
+	create_print_json(TYPE, socketio)
 
 	for route in routes:
 		for api in api_route:
@@ -209,30 +212,12 @@ def test_open_routes(URL):
 			response_put = requests.put(test_route)
 			if (response_get.status_code not in access_denied_codes):
 				temp_meta = [test_route, "GET", response_get.status_code]
-				create_error_json(TYPE, SEVERITY, URL, meta=temp_meta)
+				create_error_json(TYPE, SEVERITY, URL, meta=temp_meta, socketio=socketio, text="Discovered exposed API routes")
 			if (response_put.status_code not in access_denied_codes):
 				temp_meta = [test_route, "PUT", response_put.status_code]
-				create_error_json(TYPE, SEVERITY, URL, meta=temp_meta)
-				
-
-# severity types: warning, error
-def create_error_json(type, severity, URL, lineNumber=-1, text="", meta=""):
-	json = {"type": type, "severity": severity, "URL": URL, "lineNumber": lineNumber, "text": text, "meta": meta}
-	print(json)
-	return json
-
-# severity types: info
-def create_print_json(TYPE):
-	json = {"severity": "info", "text": ("Running analysis of " + str(TYPE) + "... ")}
-	print(json)
-	return json
-
-# severity type: success
-def create_success_json(TYPE):
-	json = {"severity": "success", "text": "Success, " + (str(TYPE)) + " test passed!"}
-	print(json)
-	return json
+				create_error_json(TYPE, SEVERITY, URL, meta=temp_meta, socketio=socketio, text="Discovered exposed API routes")
 
 ######## DRIVER ############
-URL = "https://dealio-cs98.herokuapp.com/api"
-recieve_link(URL)
+if __name__ == "__main__":
+	URL = "https://dealio-cs98.herokuapp.com/api"
+	recieve_back_end_link(URL)
